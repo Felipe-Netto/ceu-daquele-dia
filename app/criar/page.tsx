@@ -1529,8 +1529,9 @@ export default function CriarPage() {
                     <button
                       key={m}
                       type="button"
+                      disabled={isSubmitting}
                       onClick={() => { setMetodoPagamento(m); setSubmitError(null) }}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 ${
+                      className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${
                         metodoPagamento === m
                           ? 'border-violet-500/60 bg-violet-500/10'
                           : 'border-violet-500/20 hover:border-violet-500/40'
