@@ -144,7 +144,7 @@ function TelaNotFound() {
           Verifique o link que você recebeu por e-mail.
         </p>
         <Link
-          href="/"
+          href="/criar"
           className="inline-block bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400 text-white font-sans font-semibold px-8 py-4 rounded-2xl transition-all duration-300 shadow-lg"
         >
           Criar o meu céu
@@ -222,7 +222,7 @@ function TelaExpirada({ nome1, nome2, slug, precoFormatado }: { nome1: string; n
           ✨ Renovar por {precoFormatado}
         </Link>
         <Link
-          href="/"
+          href="/criar"
           className="block w-full text-center border border-violet-500/25 hover:border-violet-500/50 text-stardust hover:text-star font-sans text-sm px-8 py-3 rounded-2xl transition-all duration-300"
         >
           Criar uma nova memória
@@ -349,7 +349,7 @@ function PaginaCasal({ casal }: { casal: NonNullable<Awaited<ReturnType<typeof g
   )
 
   const colunaMemoria = (
-    <div className="space-y-10 animate-fadein-up" style={{ animationDelay: '0.3s' }}>
+    <div className="min-w-0 space-y-10 animate-fadein-up" style={{ animationDelay: '0.3s' }}>
 
       {/* Polaroid photo */}
       {casal.url_foto_casal && (
@@ -392,7 +392,7 @@ function PaginaCasal({ casal }: { casal: NonNullable<Awaited<ReturnType<typeof g
         isShortMessage ? (
           /* Mensagem curta — layout centralizado com fonte ampliada */
           <div
-            className="rounded-2xl border border-violet-500/15 flex flex-col items-center justify-center text-center px-8 py-12"
+            className="rounded-2xl border border-violet-500/15 flex flex-col items-center justify-center text-center px-8 py-12 min-w-0 w-full"
             style={{
               background: 'rgba(13,13,40,0.5)',
               backdropFilter: 'blur(16px)',
@@ -405,7 +405,10 @@ function PaginaCasal({ casal }: { casal: NonNullable<Awaited<ReturnType<typeof g
             >
               &ldquo;
             </span>
-            <p className="font-display italic text-3xl leading-snug tracking-wide" style={{ color: '#c4b5fd' }}>
+            <p
+              className="font-display italic text-3xl leading-snug tracking-wide w-full max-w-full break-words"
+              style={{ color: '#c4b5fd', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+            >
               {casal.mensagem_personalizada}
             </p>
             <span
@@ -423,7 +426,7 @@ function PaginaCasal({ casal }: { casal: NonNullable<Awaited<ReturnType<typeof g
         ) : (
           /* Mensagem longa — layout original com aspas tipográficas grandes */
           <div
-            className="rounded-2xl px-6 py-6 border border-violet-500/15"
+            className="rounded-2xl px-6 py-6 border border-violet-500/15 min-w-0 w-full"
             style={{
               background: 'rgba(13,13,40,0.5)',
               backdropFilter: 'blur(16px)',
@@ -436,7 +439,10 @@ function PaginaCasal({ casal }: { casal: NonNullable<Awaited<ReturnType<typeof g
             >
               &ldquo;
             </div>
-            <p className="font-display italic text-lg leading-relaxed" style={{ color: '#c4b5fd' }}>
+            <p
+              className="font-display italic text-lg text-center leading-relaxed w-full max-w-full break-words"
+              style={{ color: '#c4b5fd', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+            >
               {casal.mensagem_personalizada}
             </p>
             <div
@@ -532,11 +538,11 @@ function PaginaCasal({ casal }: { casal: NonNullable<Awaited<ReturnType<typeof g
           {hasRightContent ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-start">
               {/* Left: sticky sky panel */}
-              <div className="lg:sticky lg:top-8">
+              <div className="min-w-0 lg:sticky lg:top-8">
                 {colunaCeu}
               </div>
               {/* Right: memories */}
-              <div className="lg:pt-2">
+              <div className="min-w-0 lg:pt-2">
                 {colunaMemoria}
               </div>
             </div>
@@ -564,6 +570,7 @@ function PaginaCasal({ casal }: { casal: NonNullable<Awaited<ReturnType<typeof g
             urlImagem={casal.url_imagem_ceu}
             urlFoto={casal.url_foto_casal}
             slug={casal.slug_pagina_exclusiva}
+            mensagem={casal.mensagem_personalizada}
           />
         </div>
 

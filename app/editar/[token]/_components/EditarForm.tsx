@@ -497,12 +497,12 @@ export default function EditarForm({ casal }: { casal: Casal }) {
               value={form.mensagem_personalizada}
               onChange={e => setField('mensagem_personalizada', e.target.value)}
               placeholder="Aquele parágrafo que vai fazer os olhos marejarem… 💜"
-              rows={5}
-              maxLength={500}
+              rows={4}
+              maxLength={140}
               className={`${inputCls('mensagem_personalizada')} resize-none`}
             />
             <p className="mt-1.5 text-nebula text-xs font-sans text-right">
-              {form.mensagem_personalizada.length}/500
+              {form.mensagem_personalizada.length}/140
             </p>
           </FormField>
         </FormSection>

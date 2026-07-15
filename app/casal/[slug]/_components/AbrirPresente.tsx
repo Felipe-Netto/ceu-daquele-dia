@@ -109,7 +109,7 @@ export default function AbrirPresente({
 
         {/* Message */}
         <p className="text-sm font-sans mb-2 leading-relaxed" style={{ color: '#9b8cc0' }}>
-          prepararam algo especial para você.
+          Um presente especial feito com muito amor.
         </p>
         <p className="text-xs font-sans mb-10" style={{ color: '#6b5e8a' }}>
           Um momento único guardado nas estrelas. 💜

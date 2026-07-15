@@ -156,6 +156,14 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'Campos obrigatórios do casal ausentes.' }, { status: 400 })
   }
 
+  // Validação do tamanho da mensagem personalizada
+  if (mensagem_personalizada && mensagem_personalizada.length > 140) {
+    return Response.json(
+      { error: 'A mensagem personalizada não pode ter mais de 140 caracteres.' },
+      { status: 400 }
+    )
+  }
+
   // Validação dos campos de cartão
   if (payment_method === 'credit_card') {
     const { token, payment_method_id } = body as CartaoPayload

@@ -1397,10 +1397,10 @@ export default function CriarPage() {
                   onChange={set('mensagem')}
                   placeholder="Aquele parágrafo que vai fazer os olhos marejarem… 💜"
                   rows={4}
-                  maxLength={500}
+                  maxLength={140}
                   className={`${inputCls('mensagem')} resize-none`}
                 />
-                <p className="mt-1 text-nebula text-xs font-sans text-right">{formState.mensagem.length}/500</p>
+                <p className="mt-1 text-nebula text-xs font-sans text-right">{formState.mensagem.length}/140</p>
               </div>
 
               <div>

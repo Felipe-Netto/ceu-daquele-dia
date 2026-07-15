@@ -80,7 +80,19 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    // 3. Build update payload — only allowlisted fields
+    // 3. Validate mensagem_personalizada length
+    if (
+      'mensagem_personalizada' in fields &&
+      typeof fields.mensagem_personalizada === 'string' &&
+      fields.mensagem_personalizada.length > 140
+    ) {
+      return NextResponse.json(
+        { error: 'A mensagem personalizada não pode ter mais de 140 caracteres.', field: 'mensagem_personalizada' },
+        { status: 400 }
+      )
+    }
+
+    // 4. Build update payload — only allowlisted fields
     const payload: Record<string, unknown> = {}
     for (const key of ALLOWED_FIELDS) {
       if (key in fields) payload[key] = fields[key]
@@ -90,7 +102,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Nenhum campo para atualizar' }, { status: 400 })
     }
 
-    // 4. Update
+    // 5. Update
     const { error: updateErr } = await supabase
       .from('casais')
       .update(payload)

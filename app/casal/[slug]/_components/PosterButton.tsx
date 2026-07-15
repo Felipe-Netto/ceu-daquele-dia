@@ -8,13 +8,14 @@ import QRCode from 'qrcode'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Opcoes {
-  foto:   boolean
-  nomes:  boolean
-  data:   boolean
-  desde:  boolean
-  local:  boolean
-  coords: boolean
-  qrcode: boolean
+  foto:      boolean
+  nomes:     boolean
+  data:      boolean
+  desde:     boolean
+  local:     boolean
+  coords:    boolean
+  qrcode:    boolean
+  mensagem:  boolean
 }
 
 export interface PosterButtonProps {
@@ -28,6 +29,7 @@ export interface PosterButtonProps {
   urlImagem:    string | null
   urlFoto:      string | null
   slug:         string
+  mensagem:     string | null
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -53,7 +55,7 @@ function toDMS(deg: number, isLat: boolean): string {
 function PosterContent({
   opcoes,
   nome1, nome2, dataFormatada, ano, localStr, latitude, longitude,
-  urlImagem, urlFoto, qrDataUrl, posterRef,
+  urlImagem, urlFoto, qrDataUrl, mensagem, posterRef,
 }: {
   opcoes:        Opcoes
   nome1:         string
@@ -66,6 +68,7 @@ function PosterContent({
   urlImagem:     string | null
   urlFoto:       string | null
   qrDataUrl:     string | null
+  mensagem:      string | null
   posterRef?:    React.RefObject<HTMLDivElement | null>
 }) {
   const showFoto   = opcoes.foto && !!urlFoto
@@ -233,6 +236,29 @@ function PosterContent({
         </div>
       )}
 
+      {/* ── Mensagem personalizada ── */}
+      {opcoes.mensagem && mensagem && (
+        <>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            width: '100%', margin: hasSubInfo ? '14px 0 12px' : '0 0 12px',
+          }}>
+            <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(167,139,250,0.1))' }} />
+            <span style={{ fontFamily: SANS, color: 'rgba(167,139,250,0.22)', fontSize: 8 }}>✦</span>
+            <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(167,139,250,0.1))' }} />
+          </div>
+          <p style={{
+            fontFamily: SERIF, fontStyle: 'italic', fontWeight: 300,
+            fontSize: 12.5, color: 'rgba(200,185,255,0.58)',
+            lineHeight: 1.7, textAlign: 'center',
+            maxWidth: '86%', margin: '0 auto',
+            wordBreak: 'break-word', overflowWrap: 'break-word',
+          }}>
+            &ldquo;{mensagem}&rdquo;
+          </p>
+        </>
+      )}
+
       {/* Spacer pushes footer to the very bottom */}
       <div style={{ flex: 1, minHeight: 8 }} />
 
@@ -274,7 +300,7 @@ function PosterContent({
 // ── PosterButton ──────────────────────────────────────────────────────────────
 
 export default function PosterButton({
-  nome1, nome2, dataFormatada, ano, localStr, latitude, longitude, urlImagem, urlFoto, slug,
+  nome1, nome2, dataFormatada, ano, localStr, latitude, longitude, urlImagem, urlFoto, slug, mensagem,
 }: PosterButtonProps) {
   const [open, setOpen]                   = useState(false)
   const [mounted, setMounted]             = useState(false)
@@ -282,7 +308,7 @@ export default function PosterButton({
   const previewWrapRef                    = useRef<HTMLDivElement>(null)
   const [opcoes, setOpcoes]               = useState<Opcoes>({
     foto: !!urlFoto, nomes: true, data: true, desde: true,
-    local: true, coords: true, qrcode: true,
+    local: true, coords: true, qrcode: true, mensagem: !!mensagem,
   })
   const [qrDataUrl, setQrDataUrl]         = useState<string | null>(null)
   const [imageDataUrl, setImageDataUrl]   = useState<string | null>(null)
@@ -383,18 +409,19 @@ export default function PosterButton({
   }, [open])
 
   const OPTIONS: { key: keyof Opcoes; label: string }[] = [
-    ...(urlFoto ? [{ key: 'foto' as const, label: 'Foto do casal (polaroid)' }] : []),
-    { key: 'nomes',  label: 'Nomes do casal'           },
-    { key: 'data',   label: 'Data por extenso'          },
-    { key: 'desde',  label: `Desde ${ano}`              },
-    { key: 'local',  label: 'Local'                     },
-    { key: 'coords', label: 'Coordenadas geográficas'   },
-    { key: 'qrcode', label: 'QR Code da página'         },
+    ...(urlFoto    ? [{ key: 'foto'     as const, label: 'Foto do casal (polaroid)'   }] : []),
+    { key: 'nomes',    label: 'Nomes do casal'           },
+    { key: 'data',     label: 'Data por extenso'          },
+    { key: 'desde',    label: `Desde ${ano}`              },
+    { key: 'local',    label: 'Local'                     },
+    { key: 'coords',   label: 'Coordenadas geográficas'   },
+    ...(mensagem   ? [{ key: 'mensagem' as const, label: 'Mensagem personalizada'     }] : []),
+    { key: 'qrcode',   label: 'QR Code da página'         },
   ]
 
   const sharedPosterProps = {
     opcoes, nome1, nome2, dataFormatada, ano, localStr, latitude, longitude, qrDataUrl,
-    urlFoto,
+    urlFoto, mensagem,
   }
 
   return (
