@@ -15,13 +15,28 @@ interface FormState {
   data_especial: string
   local: string
   mensagem_personalizada: string
-  musica_url: string
   slug_pagina_exclusiva: string
+}
+
+interface MusicaState {
+  nome: string
+  artista: string
+  capa: string
+  previewUrl: string
+  url: string // Spotify URL (legacy)
+}
+
+interface MusicaResult {
+  id: string
+  nome: string
+  artista: string
+  capaUrl: string
+  trackUrl?: string
+  previewUrl: string | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Only keep a-z0-9 and hyphens, lowercase, no diacritics
 function toSlug(v: string) {
   return v
     .toLowerCase()
@@ -34,7 +49,6 @@ function toSlug(v: string) {
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/
 
-// Parse "Florianópolis — SC" → { city: "Florianópolis", uf: "SC" }
 function parseLocal(local: string) {
   const parts = local.split(' — ')
   return { city: parts[0]?.trim() ?? local, uf: parts[1]?.trim() ?? '' }
@@ -44,30 +58,41 @@ function parseLocal(local: string) {
 
 export default function EditarForm({ casal }: { casal: Casal }) {
   const [form, setForm] = useState<FormState>({
-    nome_parceiro_1:      casal.nome_parceiro_1,
-    nome_parceiro_2:      casal.nome_parceiro_2,
-    data_especial:        casal.data_especial.split('T')[0],
-    local:                casal.local,
+    nome_parceiro_1:       casal.nome_parceiro_1,
+    nome_parceiro_2:       casal.nome_parceiro_2,
+    data_especial:         casal.data_especial.split('T')[0],
+    local:                 casal.local,
     mensagem_personalizada: casal.mensagem_personalizada ?? '',
-    musica_url:           casal.musica_url ?? '',
     slug_pagina_exclusiva: casal.slug_pagina_exclusiva,
   })
+
+  // Music state managed separately (multi-field)
+  const [musica, setMusica] = useState<MusicaState>({
+    nome:       casal.musica_nome       ?? '',
+    artista:    casal.musica_artista    ?? '',
+    capa:       casal.musica_capa       ?? '',
+    previewUrl: casal.musica_preview_url ?? '',
+    url:        casal.musica_url        ?? '',
+  })
+  const [alterandoMusica, setAlterandoMusica] = useState(false)
 
   // Star map — can be refreshed without saving
   const [urlImagem, setUrlImagem] = useState(casal.url_imagem_ceu)
 
   // Photo manager
-  const [novaFoto, setNovaFoto]     = useState<File | null>(null)
-  const [fotoPreview, setFotoPreview] = useState<string | null>(casal.url_foto_casal)
+  const [novaFoto, setNovaFoto]         = useState<File | null>(null)
+  const [fotoPreview, setFotoPreview]   = useState<string | null>(casal.url_foto_casal)
   const [fotoRemovida, setFotoRemovida] = useState(false)
+  // Tracks the photo URL currently saved in the DB (updated after each save)
+  const [currentFotoUrl, setCurrentFotoUrl] = useState<string | null>(casal.url_foto_casal)
 
   // UI
-  const [currentSlug, setCurrentSlug] = useState(casal.slug_pagina_exclusiva)
-  const [saving, setSaving]           = useState(false)
+  const [currentSlug, setCurrentSlug]   = useState(casal.slug_pagina_exclusiva)
+  const [saving, setSaving]             = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [toast, setToast]             = useState<ToastState>(null)
-  const [errors, setErrors]           = useState<Record<string, string>>({})
-  const toastTimer                    = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [toast, setToast]               = useState<ToastState>(null)
+  const [errors, setErrors]             = useState<Record<string, string>>({})
+  const toastTimer                      = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const expirado = new Date(casal.data_expiracao) < new Date()
 
@@ -95,6 +120,24 @@ export default function EditarForm({ casal }: { casal: Casal }) {
     setErrors(e => ({ ...e, [key]: '' }))
   }, [])
 
+  // ── Music handler ──────────────────────────────────────────────────────────
+
+  const handleMusicaSelecionada = useCallback((track: MusicaResult) => {
+    setMusica({
+      nome:       track.nome,
+      artista:    track.artista,
+      capa:       track.capaUrl,
+      previewUrl: track.previewUrl ?? '',
+      url:        track.trackUrl   ?? '',
+    })
+    setAlterandoMusica(false)
+  }, [])
+
+  const removerMusica = useCallback(() => {
+    setMusica({ nome: '', artista: '', capa: '', previewUrl: '', url: '' })
+    setAlterandoMusica(false)
+  }, [])
+
   // ── Photo handlers ─────────────────────────────────────────────────────────
 
   const handleFotoChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,12 +145,10 @@ export default function EditarForm({ casal }: { casal: Casal }) {
     if (!file) return
     setFotoRemovida(false)
 
-    // Show preview immediately
     const reader = new FileReader()
     reader.onload = ev => setFotoPreview(ev.target?.result as string)
     reader.readAsDataURL(file)
 
-    // Compress for upload
     try {
       const blob = await compressImage(file)
       setNovaFoto(new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), { type: 'image/webp' }))
@@ -127,7 +168,6 @@ export default function EditarForm({ casal }: { casal: Casal }) {
   const handleRegenerarMapa = useCallback(async () => {
     setRegenerating(true)
     try {
-      // Try to get updated coords from the local field
       let lat = casal.latitude
       let lon = casal.longitude
       const { city, uf } = parseLocal(form.local)
@@ -142,9 +182,7 @@ export default function EditarForm({ casal }: { casal: Casal }) {
             lat = geoData.latitude
             lon = geoData.longitude
           }
-        } catch {
-          /* keep existing coords */
-        }
+        } catch { /* keep existing coords */ }
       }
 
       const res = await fetch('/api/generate-sky', {
@@ -193,10 +231,6 @@ export default function EditarForm({ casal }: { casal: Casal }) {
       errs.slug_pagina_exclusiva = 'Use letras minúsculas, números e hifens. Não comece nem termine com hífen.'
     }
 
-    if (form.musica_url && !/spotify\.com\//.test(form.musica_url)) {
-      errs.musica_url = 'Cole um link válido do Spotify (open.spotify.com/track/…)'
-    }
-
     setErrors(errs)
     return Object.keys(errs).length === 0
   }, [form])
@@ -208,19 +242,28 @@ export default function EditarForm({ casal }: { casal: Casal }) {
     setSaving(true)
 
     try {
-      // 1. Upload new photo if selected
+      // 1. Delete old photo from Storage if replacing or removing
+      if ((novaFoto || fotoRemovida) && currentFotoUrl) {
+        await fetch('/api/deletar-foto', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: currentFotoUrl }),
+        }).catch(() => {})
+      }
+
+      // 2. Upload new photo if selected
       let urlFotoFinal: string | null | undefined = undefined
       if (novaFoto) {
         const fd = new FormData()
         fd.append('foto', novaFoto)
         const res = await fetch('/api/upload-foto', { method: 'POST', body: fd })
         const data = await res.json()
-        urlFotoFinal = data.url ?? casal.url_foto_casal
+        urlFotoFinal = data.url ?? currentFotoUrl
       } else if (fotoRemovida) {
         urlFotoFinal = null
       }
 
-      // 2. Build PATCH body
+      // 3. Build PATCH body
       const body: Record<string, unknown> = {
         token:                  casal.token_edicao,
         nome_parceiro_1:        form.nome_parceiro_1.trim(),
@@ -228,13 +271,17 @@ export default function EditarForm({ casal }: { casal: Casal }) {
         data_especial:          form.data_especial,
         local:                  form.local.trim(),
         mensagem_personalizada: form.mensagem_personalizada.trim() || null,
-        musica_url:             form.musica_url.trim() || null,
         slug_pagina_exclusiva:  form.slug_pagina_exclusiva,
         url_imagem_ceu:         urlImagem,
+        musica_url:             musica.url    || null,
+        musica_preview_url:     musica.previewUrl || null,
+        musica_nome:            musica.nome   || null,
+        musica_artista:         musica.artista || null,
+        musica_capa:            musica.capa   || null,
       }
       if (urlFotoFinal !== undefined) body.url_foto_casal = urlFotoFinal
 
-      // 3. Save
+      // 4. Save
       const res  = await fetch('/api/editar', {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -248,34 +295,32 @@ export default function EditarForm({ casal }: { casal: Casal }) {
         return
       }
 
-      // 4. Success
+      // 5. Success
       const novoSlug = data.slug ?? form.slug_pagina_exclusiva
       setCurrentSlug(novoSlug)
       setNovaFoto(null)
+      if (urlFotoFinal !== undefined) setCurrentFotoUrl(urlFotoFinal)
       showToast({ type: 'success', message: 'Alterações salvas com sucesso! 💜' })
     } catch {
       showToast({ type: 'error', message: 'Erro de conexão. Verifique sua internet e tente novamente.' })
     } finally {
       setSaving(false)
     }
-  }, [validate, novaFoto, fotoRemovida, casal, form, urlImagem, showToast])
+  }, [validate, novaFoto, fotoRemovida, currentFotoUrl, casal, form, urlImagem, musica, showToast])
 
   // ── Styles helper ─────────────────────────────────────────────────────────
 
   const inputCls = (field: string) =>
-    `w-full bg-space-800 border ${
+    `w-full min-w-0 box-border bg-space-800 border ${
       errors[field]
         ? 'border-red-500/50 focus:border-red-400'
         : 'border-violet-500/25 focus:border-violet-500/60'
     } text-star placeholder-nebula rounded-xl px-4 py-3.5 font-sans text-sm outline-none transition-colors`
 
-  // Spotify track ID for embed preview
-  const spotifyTrackId = form.musica_url.match(/track\/([A-Za-z0-9]+)/)?.[1] ?? null
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <main className="min-h-screen bg-space-900">
+    <main className="min-h-screen bg-space-900 overflow-x-hidden">
       {/* Top nebula glow */}
       <div
         className="fixed top-0 left-0 right-0 h-96 pointer-events-none z-0"
@@ -374,14 +419,16 @@ export default function EditarForm({ casal }: { casal: Casal }) {
             error={errors.data_especial}
             hint="Usada no contador 'Juntos Há' e no mapa estelar."
           >
-            <input
-              type="date"
-              value={form.data_especial}
-              onChange={e => setField('data_especial', e.target.value)}
-              max={new Date().toISOString().split('T')[0]}
-              className={inputCls('data_especial')}
-              style={{ colorScheme: 'dark' }}
-            />
+            <div className="w-full overflow-hidden">
+              <input
+                type="date"
+                value={form.data_especial}
+                onChange={e => setField('data_especial', e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+                className={`${inputCls('data_especial')} appearance-none`}
+                style={{ colorScheme: 'dark', width: '100%', minWidth: 0 }}
+              />
+            </div>
           </FormField>
 
           <FormField
@@ -418,7 +465,7 @@ export default function EditarForm({ casal }: { casal: Casal }) {
                 ✦
               </div>
             )}
-            <div className="flex-1 text-center sm:text-left">
+            <div className="flex-1 min-w-0 text-center sm:text-left">
               <p className="text-stardust text-sm font-sans mb-1">Mapa estelar</p>
               <p className="text-nebula text-xs font-sans mb-3 leading-relaxed">
                 Mudou a data ou cidade? Regenere para atualizar o céu. O novo mapa será
@@ -461,38 +508,65 @@ export default function EditarForm({ casal }: { casal: Casal }) {
         </FormSection>
 
         {/* ── 4. Música ────────────────────────────────────────────────────── */}
-        <FormSection number="4" title="Música do Spotify">
-          <FormField
-            label="Link da música"
-            optional
-            error={errors.musica_url}
-            hint="Cole a URL de uma faixa do Spotify (open.spotify.com/track/…)"
-          >
-            <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                🎵
-              </span>
-              <input
-                type="url"
-                value={form.musica_url}
-                onChange={e => setField('musica_url', e.target.value)}
-                placeholder="https://open.spotify.com/track/..."
-                className={`${inputCls('musica_url')} pl-9`}
-              />
+        <FormSection number="4" title="Música">
+          {musica.nome && !alterandoMusica ? (
+            /* Música salva — exibe card */
+            <div className="space-y-3">
+              <div
+                className="flex items-center gap-3 p-3 rounded-xl border border-violet-500/20"
+                style={{ background: 'rgba(124,58,237,0.08)' }}
+              >
+                {musica.capa ? (
+                  <img
+                    src={musica.capa}
+                    alt={musica.nome}
+                    className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-lg bg-space-800 border border-violet-500/20 flex items-center justify-center text-xl flex-shrink-0">
+                    🎵
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-star text-sm font-sans font-medium truncate">{musica.nome}</p>
+                  <p className="text-nebula text-xs font-sans truncate">{musica.artista}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setAlterandoMusica(true)}
+                  className="text-violet-400 hover:text-violet-300 text-sm font-sans underline underline-offset-2 transition-colors"
+                >
+                  Alterar música
+                </button>
+                <button
+                  type="button"
+                  onClick={removerMusica}
+                  className="text-red-400/60 hover:text-red-400 text-sm font-sans underline underline-offset-2 transition-colors"
+                >
+                  Remover
+                </button>
+              </div>
             </div>
-          </FormField>
-
-          {/* Spotify compact preview */}
-          {spotifyTrackId && (
-            <div className="rounded-xl overflow-hidden border border-white/5">
-              <iframe
-                key={spotifyTrackId}
-                src={`https://open.spotify.com/embed/track/${spotifyTrackId}?utm_source=generator&theme=0`}
-                width="100%"
-                height="80"
-                allow="clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                style={{ display: 'block', border: 0 }}
-              />
+          ) : (
+            /* Busca de música */
+            <div className="space-y-3">
+              {musica.nome && alterandoMusica && (
+                <button
+                  type="button"
+                  onClick={() => setAlterandoMusica(false)}
+                  className="text-nebula hover:text-stardust text-xs font-sans underline underline-offset-2 transition-colors"
+                >
+                  ← Cancelar e manter música atual
+                </button>
+              )}
+              <MusicaInput onSelect={handleMusicaSelecionada} />
+              {!musica.nome && (
+                <p className="text-nebula text-xs font-sans">
+                  Busque por nome da música ou artista. Sem música? Deixe em branco.
+                </p>
+              )}
             </div>
           )}
         </FormSection>
@@ -504,7 +578,7 @@ export default function EditarForm({ casal }: { casal: Casal }) {
             error={errors.slug_pagina_exclusiva}
             hint="Letras minúsculas, números e hifens. Mínimo 3 caracteres."
           >
-            <div className="flex items-stretch">
+            <div className="flex items-stretch overflow-hidden">
               <span
                 className="flex-shrink-0 flex items-center px-3 rounded-l-xl border border-r-0 text-nebula text-xs font-mono whitespace-nowrap"
                 style={{
@@ -521,7 +595,7 @@ export default function EditarForm({ casal }: { casal: Casal }) {
                 value={form.slug_pagina_exclusiva}
                 onChange={e => setField('slug_pagina_exclusiva', toSlug(e.target.value))}
                 placeholder="ana-e-carlos"
-                className={`flex-1 bg-space-800 border ${
+                className={`min-w-0 flex-1 bg-space-800 border ${
                   errors.slug_pagina_exclusiva
                     ? 'border-red-500/50 focus:border-red-400'
                     : 'border-violet-500/25 focus:border-violet-500/60'
@@ -614,6 +688,161 @@ export default function EditarForm({ casal }: { casal: Casal }) {
   )
 }
 
+// ── MusicaInput ───────────────────────────────────────────────────────────────
+
+function PlayPauseBtn({
+  trackId,
+  previewUrl,
+  playingId,
+  onToggle,
+}: {
+  trackId: string
+  previewUrl: string | null
+  playingId: string | null
+  onToggle: (id: string, url: string) => void
+}) {
+  if (!previewUrl) return null
+  const isPlaying = playingId === trackId
+  return (
+    <button
+      type="button"
+      onClick={e => { e.stopPropagation(); onToggle(trackId, previewUrl) }}
+      className="flex-shrink-0 w-7 h-7 rounded-full border border-violet-500/30 hover:border-violet-500/60 flex items-center justify-center text-violet-400 hover:text-violet-300 transition-all"
+      aria-label={isPlaying ? 'Pausar prévia' : 'Tocar prévia'}
+    >
+      {isPlaying ? (
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+          <rect x="1" y="1" width="3" height="8" rx="1"/>
+          <rect x="6" y="1" width="3" height="8" rx="1"/>
+        </svg>
+      ) : (
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+          <path d="M2 1.5l7 3.5-7 3.5z"/>
+        </svg>
+      )}
+    </button>
+  )
+}
+
+function MusicaInput({ onSelect }: { onSelect: (track: MusicaResult) => void }) {
+  const audioRef     = useRef<HTMLAudioElement | null>(null)
+  const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const [query, setQuery]         = useState('')
+  const [resultados, setResultados] = useState<MusicaResult[]>([])
+  const [buscando, setBuscando]   = useState(false)
+  const [playingId, setPlayingId] = useState<string | null>(null)
+
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause()
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
+  const buscar = useCallback((q: string) => {
+    if (!q.trim()) { setResultados([]); return }
+    setBuscando(true)
+    fetch(`/api/music/search?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then((data: { tracks?: MusicaResult[] }) => setResultados(Array.isArray(data.tracks) ? data.tracks.slice(0, 6) : []))
+      .catch(() => setResultados([]))
+      .finally(() => setBuscando(false))
+  }, [])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value
+    setQuery(v)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => buscar(v), 350)
+  }
+
+  const togglePreview = useCallback((id: string, url: string) => {
+    if (!audioRef.current) audioRef.current = new Audio()
+    const audio = audioRef.current
+
+    if (playingId === id) {
+      audio.pause()
+      setPlayingId(null)
+    } else {
+      audio.pause()
+      audio.src = url
+      audio.play().catch(() => {})
+      audio.onended = () => setPlayingId(null)
+      setPlayingId(id)
+    }
+  }, [playingId])
+
+  const handleSelect = (track: MusicaResult) => {
+    audioRef.current?.pause()
+    setPlayingId(null)
+    onSelect(track)
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-nebula">
+          🔍
+        </span>
+        <input
+          type="text"
+          value={query}
+          onChange={handleChange}
+          placeholder="Buscar música ou artista…"
+          className="w-full min-w-0 bg-space-800 border border-violet-500/25 focus:border-violet-500/60 text-star placeholder-nebula rounded-xl pl-9 pr-4 py-3.5 font-sans text-sm outline-none transition-colors"
+        />
+        {buscando && (
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 border border-violet-400 border-t-transparent rounded-full animate-spin" />
+        )}
+      </div>
+
+      {resultados.length > 0 && (
+        <ul className="space-y-1.5">
+          {resultados.map(track => (
+            <li key={track.id}>
+              <button
+                type="button"
+                onClick={() => handleSelect(track)}
+                className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-transparent hover:border-violet-500/25 hover:bg-violet-500/8 transition-all text-left group"
+              >
+                {track.capaUrl ? (
+                  <img
+                    src={track.capaUrl}
+                    alt={track.nome}
+                    className="w-10 h-10 rounded-md object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-md bg-space-800 flex items-center justify-center flex-shrink-0 text-sm">
+                    🎵
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-star text-sm font-sans truncate">{track.nome}</p>
+                  <p className="text-nebula text-xs font-sans truncate">{track.artista}</p>
+                </div>
+                <PlayPauseBtn
+                  trackId={track.id}
+                  previewUrl={track.previewUrl}
+                  playingId={playingId}
+                  onToggle={togglePreview}
+                />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {query.trim() && !buscando && resultados.length === 0 && (
+        <p className="text-nebula text-xs font-sans text-center py-3">
+          Nenhuma música encontrada para "{query}"
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function FormSection({
@@ -627,7 +856,7 @@ function FormSection({
 }) {
   return (
     <section
-      className="rounded-2xl border border-white/5 p-6 space-y-5"
+      className="rounded-2xl border border-white/5 p-6 space-y-5 overflow-hidden"
       style={{ background: 'rgba(13,13,40,0.5)' }}
     >
       <div className="flex items-center gap-3">
@@ -662,7 +891,7 @@ function FormField({
   children: React.ReactNode
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className="block text-stardust text-xs font-sans uppercase tracking-wider mb-2">
         {label}
         {optional && (
@@ -690,7 +919,6 @@ function PhotoManager({
   if (fotoPreview) {
     return (
       <div className="flex items-center gap-5">
-        {/* Polaroid preview */}
         <div
           className="bg-white shadow-xl flex-shrink-0"
           style={{ padding: '8px 8px 28px', transform: 'rotate(-2deg)', width: '88px' }}

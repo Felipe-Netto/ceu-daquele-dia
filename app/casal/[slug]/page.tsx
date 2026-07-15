@@ -589,7 +589,7 @@ function PaginaCasal({ casal }: { casal: NonNullable<Awaited<ReturnType<typeof g
             </Link>
           </div>
 
-          <p className="text-xs font-sans mt-3" style={{ color: '#2a2060' }}>
+          <p className="text-xs font-sans mt-3 text-center" style={{ color: '#2a2060' }}>
             Assinatura anual · Renovável em{' '}
             {new Date(casal.data_expiracao).toLocaleDateString('pt-BR', {
               day: '2-digit', month: 'long', year: 'numeric',
