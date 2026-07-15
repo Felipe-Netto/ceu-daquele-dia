@@ -30,7 +30,7 @@ export async function enviarEmailConfirmacao(casal: DadosEmailCasal): Promise<vo
   const urlPagina = `${baseUrl}/casal/${casal.slug_pagina_exclusiva}`
   const urlEditar = `${baseUrl}/editar/${casal.token_edicao}`
 
-  const { dataUri, base64 } = await gerarQrCode(urlPagina)
+  const { base64 } = await gerarQrCode(urlPagina)
 
   const dataFormatada = new Date(casal.data_especial + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -39,15 +39,24 @@ export async function enviarEmailConfirmacao(casal: DadosEmailCasal): Promise<vo
   })
 
   await resend.emails.send({
-    from: 'Céu Daquele Dia <ola@meudominio.com.br>',
+    from: 'Céu Daquele Dia <ola@ceudaqueledia.com.br>',
     to: casal.email,
     subject: `✨ O Céu de ${casal.nome_parceiro_1} & ${casal.nome_parceiro_2} está pronto`,
     attachments: [
       {
         filename: 'qrcode-ceu-daquele-dia.png',
         content: base64,
+        id: 'qrcode_cid',
       },
     ],
+    text: criarTextoEmail({
+      nome1: casal.nome_parceiro_1,
+      nome2: casal.nome_parceiro_2,
+      dataFormatada,
+      local: casal.local,
+      urlPagina,
+      urlEditar,
+    }),
     html: criarHtmlEmail({
       nome1: casal.nome_parceiro_1,
       nome2: casal.nome_parceiro_2,
@@ -55,12 +64,40 @@ export async function enviarEmailConfirmacao(casal: DadosEmailCasal): Promise<vo
       local: casal.local,
       urlPagina,
       urlEditar,
-      qrCodeDataUri: dataUri,
     }),
   })
 }
 
 // ─── Template ─────────────────────────────────────────────────────────────────
+
+interface TextParams {
+  nome1: string
+  nome2: string
+  dataFormatada: string
+  local: string
+  urlPagina: string
+  urlEditar: string
+}
+
+function criarTextoEmail(p: TextParams): string {
+  return `Olá, ${p.nome1} & ${p.nome2}!
+
+O céu de vocês está pronto 🌌
+
+Preparamos a memória do céu da noite de ${p.dataFormatada}, em ${p.local}.
+
+Acesse sua página especial:
+${p.urlPagina}
+
+Quer personalizar sua página? Acesse o link de edição:
+${p.urlEditar}
+
+O QR Code da sua página está em anexo neste e-mail — imprima e emoldure para ter sempre por perto.
+
+Sua assinatura é válida por 1 ano.
+
+— Equipe Céu Daquele Dia`
+}
 
 interface TemplateParams {
   nome1: string
@@ -69,7 +106,6 @@ interface TemplateParams {
   local: string
   urlPagina: string
   urlEditar: string
-  qrCodeDataUri: string
 }
 
 function criarHtmlEmail(p: TemplateParams): string {
@@ -155,7 +191,7 @@ function criarHtmlEmail(p: TemplateParams): string {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding-bottom:16px;">
-                    <img src="${p.qrCodeDataUri}"
+                    <img src="cid:qrcode_cid"
                          width="200" height="200"
                          alt="QR Code para sua página especial"
                          style="display:block;border-radius:12px;border:4px solid #2a2060;" />
