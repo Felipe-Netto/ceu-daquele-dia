@@ -24,7 +24,7 @@ const BENEFITS = [
   },
 ]
 
-export default function BenefitsSection() {
+export default function BenefitsSection({ precoFormatado }: { precoFormatado: string }) {
   return (
     <>
       {/* ── Seção de Benefícios ── */}
@@ -97,7 +97,7 @@ export default function BenefitsSection() {
           </h2>
 
           <p className="text-stardust font-sans text-base leading-relaxed mb-10">
-            Em poucos minutos, o céu da noite mais especial de vocês<br className="hidden md:block" />
+            Em poucos minutos, o céu da noite mais especial de vocês <br className="hidden md:block" />
             estará guardado para sempre. ✨
           </p>
 
@@ -111,7 +111,7 @@ export default function BenefitsSection() {
           </div>
 
           <p className="mt-6 text-nebula text-xs font-sans">
-            R$ 29,90 · Pagamento único · Acesso por 12 meses
+            {precoFormatado} · Pagamento único · Acesso por 12 meses
           </p>
         </div>
       </section>
@@ -123,7 +123,7 @@ export default function BenefitsSection() {
           <p className="text-nebula text-xs font-sans text-center">
             © {new Date().getFullYear()} Céu Daquele Dia · Feito com 💜 para eternizar memórias
           </p>
-          <p className="text-nebula text-xs font-sans">R$ 29,90 / ano</p>
+          <p className="text-nebula text-xs font-sans">{precoFormatado} / ano</p>
         </div>
       </footer>
     </>

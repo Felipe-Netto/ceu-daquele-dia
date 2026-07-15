@@ -30,6 +30,10 @@ export interface Casal {
   url_imagem_ceu: string | null
   url_foto_casal: string | null
   musica_url: string | null
+  musica_preview_url: string | null
+  musica_nome: string | null
+  musica_artista: string | null
+  musica_capa: string | null
   mensagem_personalizada: string | null
   slug_pagina_exclusiva: string
   token_edicao: string

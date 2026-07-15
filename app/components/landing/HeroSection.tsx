@@ -19,7 +19,7 @@ const HERO_STARS: [number, number, number, number][] = [
   [43, 38, 1, 0.7], [57, 78, 2.5, 1.6], [20, 58, 1.4, 2.2], [75, 42, 1, 0.1],
 ]
 
-export default function HeroSection() {
+export default function HeroSection({ precoFormatado }: { precoFormatado: string }) {
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden">
       {/* Fundo gradiente espacial */}
@@ -105,7 +105,7 @@ export default function HeroSection() {
           className="mt-6 text-nebula text-xs font-sans animate-fadein-up"
           style={{ animationDelay: '0.8s' }}
         >
-          Assinatura anual · R$ 29,90 · Acesso por 1 ano completo
+          Assinatura anual · {precoFormatado} · Acesso por 1 ano completo
         </p>
       </div>
 

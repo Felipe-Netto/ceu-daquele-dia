@@ -72,9 +72,18 @@ html {
   scroll-behavior: smooth;
 }
 
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 body {
   background-color: #07071a;
   color: #f0e6ff;
+  overflow-x: hidden;
 }
 
 /* Gradiente de texto reutilizável */

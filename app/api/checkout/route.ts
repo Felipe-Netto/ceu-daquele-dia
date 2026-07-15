@@ -1,11 +1,11 @@
 import type { NextRequest } from 'next/server'
 import { supabase } from '@/app/lib/supabase'
 import { enviarEmailConfirmacao } from '@/app/lib/email'
+import { getPreco } from '@/app/lib/preco'
 
 export const dynamic = 'force-dynamic'
 
 const MP_PAYMENTS_URL = 'https://api.mercadopago.com/v1/payments'
-const PRECO = 29.9
 const DESCRICAO = 'Céu Daquele Dia — Assinatura Anual'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -32,6 +32,10 @@ type CheckoutBody = {
   email: string
   mensagem_personalizada?: string
   musica_url?: string
+  musica_preview_url?: string
+  musica_nome?: string
+  musica_artista?: string
+  musica_capa?: string
   url_foto_casal?: string
   url_imagem_ceu?: string
 } & (PixPayload | CartaoPayload)
@@ -77,6 +81,10 @@ async function criarCasal(dados: {
   email: string
   mensagem_personalizada: string | null
   musica_url: string | null
+  musica_preview_url: string | null
+  musica_nome: string | null
+  musica_artista: string | null
+  musica_capa: string | null
   url_foto_casal: string | null
   url_imagem_ceu: string | null
 }): Promise<{ id: string; slug_pagina_exclusiva: string } | null> {
@@ -126,6 +134,10 @@ export async function POST(request: NextRequest) {
     email,
     mensagem_personalizada,
     musica_url,
+    musica_preview_url,
+    musica_nome,
+    musica_artista,
+    musica_capa,
     url_foto_casal,
     url_imagem_ceu,
     payment_method,
@@ -155,7 +167,10 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 1. Inserir casal com status pending ──────────────────────────────────────
+  // 1. Buscar preço autoritativo no banco — nunca confiamos no front-end ──────
+  const preco = await getPreco()
+
+  // 2. Inserir casal com status pending ──────────────────────────────────────
   const casal = await criarCasal({
     nome_parceiro_1,
     nome_parceiro_2,
@@ -166,6 +181,10 @@ export async function POST(request: NextRequest) {
     email,
     mensagem_personalizada: mensagem_personalizada ?? null,
     musica_url: musica_url ?? null,
+    musica_preview_url: musica_preview_url ?? null,
+    musica_nome: musica_nome ?? null,
+    musica_artista: musica_artista ?? null,
+    musica_capa: musica_capa ?? null,
     url_foto_casal: url_foto_casal ?? null,
     url_imagem_ceu: url_imagem_ceu ?? null,
   })
@@ -177,9 +196,9 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 2. Montar payload para o Mercado Pago ────────────────────────────────────
+  // 3. Montar payload para o Mercado Pago ────────────────────────────────────
   const mpPayload: Record<string, unknown> = {
-    transaction_amount: PRECO,
+    transaction_amount: preco,
     description: DESCRICAO,
     payer: { email },
   }
@@ -194,7 +213,7 @@ export async function POST(request: NextRequest) {
     if (issuer_id != null) mpPayload.issuer_id = issuer_id
   }
 
-  // 3. Chamar a API do Mercado Pago ──────────────────────────────────────────
+  // 4. Chamar a API do Mercado Pago ──────────────────────────────────────────
   const mpRes = await fetch(MP_PAYMENTS_URL, {
     method: 'POST',
     headers: {

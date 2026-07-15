@@ -50,6 +50,7 @@ interface FormState {
   nomeParceiro2: string
   mensagem: string
   musicaUrl: string
+  musicaPreviewUrl: string
   musicaNome: string
   musicaArtista: string
   musicaCapa: string
@@ -527,12 +528,14 @@ function LivePreview({
   starMapUrl,
   faseLua,
   isLoadingMap,
+  precoFormatado,
 }: {
   formState: FormState
   fotoPreview: string | null
   starMapUrl: string | null
   faseLua: FaseLua | null
   isLoadingMap: boolean
+  precoFormatado: string
 }) {
   const nome1 = formState.nomeParceiro1 || 'Nome 1'
   const nome2 = formState.nomeParceiro2 || 'Nome 2'
@@ -660,7 +663,7 @@ function LivePreview({
       </div>
 
       <p className="text-center text-xs font-sans" style={{ color: '#6b5e8a' }}>
-        R$ 29,90 · Acesso por 12 meses · Renovável
+        {precoFormatado} · Acesso por 12 meses · Renovável
       </p>
     </div>
   )
@@ -668,7 +671,7 @@ function LivePreview({
 
 // ── PixModal ───────────────────────────────────────────────────────────────────
 
-function PixModal({ pixData, onClose }: { pixData: PixData; onClose: () => void }) {
+function PixModal({ pixData, onClose, precoFormatado }: { pixData: PixData; onClose: () => void; precoFormatado: string }) {
   const [copiado, setCopiado] = useState(false)
 
   const copiar = useCallback(async () => {
@@ -758,7 +761,7 @@ function PixModal({ pixData, onClose }: { pixData: PixData; onClose: () => void 
         </div>
 
         <p className="mt-4 text-nebula text-xs font-sans">
-          R$ 29,90 · Pix instantâneo · Acesso em segundos
+          {precoFormatado} · Pix instantâneo · Acesso em segundos
         </p>
       </div>
     </div>
@@ -846,6 +849,16 @@ function CartaoResultadoModal({ resultado, onClose }: { resultado: CartaoResulta
 // ── CriarPage ──────────────────────────────────────────────────────────────────
 
 export default function CriarPage() {
+  const [preco, setPreco] = useState(29.90)
+  const precoFormatado = `R$ ${preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+  useEffect(() => {
+    fetch('/api/preco')
+      .then(r => r.json())
+      .then(d => { if (typeof d.preco === 'number' && d.preco > 0) setPreco(d.preco) })
+      .catch(() => {})
+  }, [])
+
   const [etapa, setEtapa] = useState<1 | 2 | 3>(1)
   const [formState, setFormState] = useState<FormState>({
     nomeCidade: '',
@@ -857,6 +870,7 @@ export default function CriarPage() {
     nomeParceiro2: '',
     mensagem: '',
     musicaUrl: '',
+    musicaPreviewUrl: '',
     musicaNome: '',
     musicaArtista: '',
     musicaCapa: '',
@@ -931,7 +945,7 @@ export default function CriarPage() {
       .then(d => setPaymentMethodId(d.results[0]?.id ?? ''))
       .catch(() => {})
 
-    mp.getInstallments({ amount: '29.90', bin, paymentTypeId: 'credit_card' })
+    mp.getInstallments({ amount: preco.toFixed(2), bin, paymentTypeId: 'credit_card' })
       .then(d => {
         const costs = d[0]?.payer_costs ?? []
         setOpcoesParcelamento(costs.map(c => ({ installments: c.installments, label: c.recommended_message })))
@@ -977,6 +991,7 @@ export default function CriarPage() {
     setFormState(prev => ({
       ...prev,
       musicaUrl: '',
+      musicaPreviewUrl: track.previewUrl ?? '',
       musicaNome: track.nome,
       musicaArtista: track.artista,
       musicaCapa: track.capaUrl,
@@ -1090,6 +1105,10 @@ export default function CriarPage() {
         email: formState.email.trim(),
         mensagem_personalizada: formState.mensagem || null,
         musica_url: formState.musicaUrl || null,
+        musica_preview_url: formState.musicaPreviewUrl || null,
+        musica_nome: formState.musicaNome || null,
+        musica_artista: formState.musicaArtista || null,
+        musica_capa: formState.musicaCapa || null,
         url_foto_casal: urlFoto,
         url_imagem_ceu: urlMapa,
       }
@@ -1172,7 +1191,7 @@ export default function CriarPage() {
   // Styles ────────────────────────────────────────────────────────────────────
 
   const inputCls = (field: string) =>
-    `w-full bg-space-800 border ${
+    `w-full max-w-full box-border bg-space-800 border ${
       errors[field] ? 'border-red-500/50' : 'border-violet-500/25 focus:border-violet-500/60'
     } text-star placeholder-nebula rounded-xl px-4 py-3 font-sans text-sm outline-none transition-colors`
 
@@ -1181,7 +1200,7 @@ export default function CriarPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <main className="min-h-screen bg-space-900">
+    <main className="min-h-screen bg-space-900 overflow-x-hidden">
 
       {/* Mercado Pago SDK */}
       <Script
@@ -1196,20 +1215,20 @@ export default function CriarPage() {
       />
 
       {/* Header */}
-      <header className="border-b border-violet-500/10 px-6 py-4">
+      <header className="border-b border-violet-500/10 px-4 sm:px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/" className="font-display text-xl text-stardust italic hover:text-star transition-colors">
             Céu Daquele Dia
           </Link>
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-gold-400 animate-pulse-glow" />
-            <span className="text-nebula text-xs font-sans">R$ 29,90 / ano</span>
+            <span className="text-nebula text-xs font-sans">{precoFormatado} / ano</span>
           </div>
         </div>
       </header>
 
       {/* Hero */}
-      <div className="text-center px-6 py-10 md:py-14">
+      <div className="text-center px-4 sm:px-6 py-10 md:py-14">
         <p className="text-violet-400 text-xs tracking-[4px] uppercase font-sans mb-4">
           ✦ &nbsp; Criando o presente &nbsp; ✦
         </p>
@@ -1223,7 +1242,7 @@ export default function CriarPage() {
       </div>
 
       {/* Progress */}
-      <div className="max-w-6xl mx-auto px-6 mb-10">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 mb-10">
         <div className="flex items-center justify-center">
           {ETAPAS.map((label, i) => {
             const step = i + 1
@@ -1253,10 +1272,10 @@ export default function CriarPage() {
       </div>
 
       {/* Two-column layout */}
-      <div className="max-w-6xl mx-auto px-6 pb-20 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-20 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start">
 
         {/* ── Form column ── */}
-        <div className="min-h-[480px]">
+        <div className="w-full min-w-0 min-h-[480px]">
 
           {/* STEP 1 */}
           <div className={etapa === 1 ? 'block' : 'hidden'}>
@@ -1287,14 +1306,16 @@ export default function CriarPage() {
                 <label className="block text-stardust text-xs font-sans uppercase tracking-wider mb-2">
                   A data especial
                 </label>
-                <input
-                  type="date"
-                  value={formState.data}
-                  onChange={set('data')}
-                  max={new Date().toISOString().split('T')[0]}
-                  className={inputCls('data')}
-                  style={{ colorScheme: 'dark' }}
-                />
+                <div className="w-full overflow-hidden">
+                  <input
+                    type="date"
+                    value={formState.data}
+                    onChange={set('data')}
+                    max={new Date().toISOString().split('T')[0]}
+                    className={`${inputCls('data')} appearance-none`}
+                    style={{ colorScheme: 'dark', width: '100%', minWidth: 0 }}
+                  />
+                </div>
                 {errors.data
                   ? <p className="mt-1.5 text-red-400 text-xs font-sans">{errors.data}</p>
                   : faseLua
@@ -1310,13 +1331,15 @@ export default function CriarPage() {
                   Que horas eram?{' '}
                   <span className="text-nebula normal-case font-normal tracking-normal">(opcional)</span>
                 </label>
-                <input
-                  type="time"
-                  value={formState.hora}
-                  onChange={set('hora')}
-                  className={inputCls('hora')}
-                  style={{ colorScheme: 'dark' }}
-                />
+                <div className="w-full overflow-hidden">
+                  <input
+                    type="time"
+                    value={formState.hora}
+                    onChange={set('hora')}
+                    className={`${inputCls('hora')} appearance-none`}
+                    style={{ colorScheme: 'dark', width: '100%', minWidth: 0 }}
+                  />
+                </div>
               </div>
 
               <button
@@ -1339,7 +1362,7 @@ export default function CriarPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-stardust text-xs font-sans uppercase tracking-wider mb-2">Primeiro nome</label>
                   <input
@@ -1491,7 +1514,7 @@ export default function CriarPage() {
                 </div>
                 <div className="border-t border-white/5 mt-3 pt-3 flex justify-between items-baseline">
                   <span className="text-stardust font-sans font-semibold text-sm">Total</span>
-                  <span className="font-display text-xl text-star">R$ 29,90</span>
+                  <span className="font-display text-xl text-star">{precoFormatado}</span>
                 </div>
                 <p className="text-nebula text-xs font-sans text-center">Acesso por 12 meses · Renovável</p>
               </div>
@@ -1670,12 +1693,13 @@ export default function CriarPage() {
             starMapUrl={starMapUrl}
             faseLua={faseLua}
             isLoadingMap={isLoadingMap}
+            precoFormatado={precoFormatado}
           />
         </div>
       </div>
 
       {/* Preview column (mobile — below form) */}
-      <div className="lg:hidden px-6 pb-16">
+      <div className="lg:hidden px-4 sm:px-6 pb-16">
         <div className="border-t border-violet-500/10 pt-8">
           <p className="text-center text-violet-400 text-xs tracking-[3px] uppercase font-sans mb-6">
             ✦ Preview ✦
@@ -1686,12 +1710,13 @@ export default function CriarPage() {
             starMapUrl={starMapUrl}
             faseLua={faseLua}
             isLoadingMap={isLoadingMap}
+            precoFormatado={precoFormatado}
           />
         </div>
       </div>
 
       {/* Pix modal */}
-      {pixData && <PixModal pixData={pixData} onClose={() => setPixData(null)} />}
+      {pixData && <PixModal pixData={pixData} onClose={() => setPixData(null)} precoFormatado={precoFormatado} />}
 
       {/* Cartão resultado modal */}
       {cartaoResultado && (
