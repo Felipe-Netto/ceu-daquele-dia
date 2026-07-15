@@ -890,6 +890,7 @@ export default function CriarPage() {
   // ── Pagamento ──────────────────────────────────────────────────────────────
   const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'credit_card'>('pix')
   const mpRef = useRef<MpInstance | null>(null)
+  const [mpCarregado, setMpCarregado] = useState(false)
   const [cartaoNumero, setCartaoNumero] = useState('')
   const [cartaoNome, setCartaoNome] = useState('')
   const [cartaoCpf, setCartaoCpf] = useState('')
@@ -1205,11 +1206,12 @@ export default function CriarPage() {
       {/* Mercado Pago SDK */}
       <Script
         src="https://sdk.mercadopago.com/js/v2"
-        strategy="lazyOnload"
+        strategy="afterInteractive"
         onLoad={() => {
           const key = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY ?? ''
           if (key && window.MercadoPago) {
             mpRef.current = new window.MercadoPago(key, { locale: 'pt-BR' })
+            setMpCarregado(true)
           }
         }}
       />
@@ -1670,13 +1672,18 @@ export default function CriarPage() {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || (metodoPagamento === 'credit_card' && !mpCarregado)}
                   className="btn-glow flex-[2] bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400 disabled:from-violet-900 disabled:to-violet-800 text-white font-sans font-semibold text-base px-8 py-4 rounded-2xl transition-all duration-300 shadow-lg flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       Preparando o céu de vocês…
+                    </>
+                  ) : metodoPagamento === 'credit_card' && !mpCarregado ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Carregando…
                     </>
                   ) : metodoPagamento === 'pix' ? '⚡ Gerar QR Code Pix' : '💳 Pagar com Cartão'}
                 </button>

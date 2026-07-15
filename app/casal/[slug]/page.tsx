@@ -7,6 +7,7 @@ import ContadorTempo from './_components/ContadorTempo'
 import AbrirPresente from './_components/AbrirPresente'
 import SpotifyPlayer from './_components/SpotifyPlayer'
 import PosterButton from './_components/PosterButton'
+import RenovarInline from './_components/RenovarInline'
 
 // ── Data fetching (deduplicated across generateMetadata + page) ──────────────
 
@@ -191,44 +192,68 @@ function TelaAguardandoPagamento({ nome1, nome2 }: { nome1: string; nome2: strin
   )
 }
 
-function TelaExpirada({ nome1, nome2, slug, precoFormatado }: { nome1: string; nome2: string; slug: string; precoFormatado: string }) {
+function TelaExpirada({ nome1, nome2, slug, preco, precoFormatado }: { nome1: string; nome2: string; slug: string; preco: number; precoFormatado: string }) {
   return (
-    <main
-      className="min-h-screen flex items-center justify-center px-6"
-      style={{ background: 'linear-gradient(160deg, #0d0d28 0%, #07071a 100%)' }}
+    <div
+      className="relative min-h-screen flex items-center justify-center px-5 overflow-hidden"
+      style={{ background: 'radial-gradient(ellipse at 50% 0%, #160830 0%, #0a0a1e 45%, #04040e 100%)' }}
     >
+      {/* Estrelas — absolutas dentro do container relativo, sem wrapper fixed */}
+      {STARS_DECO.map((s, i) => (
+        <div
+          key={i}
+          aria-hidden
+          className="absolute rounded-full animate-twinkle pointer-events-none"
+          style={{
+            top: s.top,
+            left: s.left,
+            width: `${s.size * 3}px`,
+            height: `${s.size * 3}px`,
+            background: s.color,
+            opacity: 0.5,
+            animationDelay: s.delay,
+            animationDuration: s.dur,
+          }}
+        />
+      ))}
+
+      {/* Brilho dourado difuso no topo */}
       <div
-        className="fixed top-0 left-0 right-0 h-64 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse 80% 50% at 50% -5%, rgba(245,215,142,0.08) 0%, transparent 70%)' }}
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-64 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(245,215,142,0.10) 0%, transparent 100%)' }}
       />
-      <div className="relative text-center max-w-sm animate-fadein-up">
-        <p className="text-gold-400/30 text-3xl tracking-[12px] mb-8">✦ · · · ✦</p>
-        <div className="text-7xl mb-6">🌙</div>
-        <h1 className="font-display text-4xl italic text-star mb-4 leading-tight">
-          As estrelas adormecer&shy;am...
+      {/* Brilho roxo difuso no fundo */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-64 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(109,28,217,0.10) 0%, transparent 100%)' }}
+      />
+
+      {/* Conteúdo centralizado */}
+      <div className="relative z-10 w-full max-w-sm text-center py-12 animate-fadein-up">
+        <p className="text-2xl tracking-[10px] mb-10" style={{ color: 'rgba(245,215,142,0.15)' }}>✦ · · · ✦</p>
+
+        <div className="mb-7" style={{ filter: 'drop-shadow(0 0 36px rgba(245,215,142,0.28))' }}>
+          <span className="text-8xl">🌙</span>
+        </div>
+
+        <h1 className="font-display text-4xl italic mb-5 leading-tight" style={{ color: '#f0e6ff' }}>
+          As estrelas<br />adormeceram...
         </h1>
-        <p className="text-stardust text-sm font-sans leading-relaxed mb-3">
-          A assinatura de{' '}
-          <strong className="text-star">{nome1} &amp; {nome2}</strong>{' '}
-          expirou, mas as memórias daquela noite existem para sempre.
+
+        <p className="text-sm font-sans leading-relaxed mb-2 max-w-xs mx-auto" style={{ color: 'rgba(203,185,255,0.52)' }}>
+          A memória de{' '}
+          <strong style={{ color: '#e9d5ff' }}>{nome1} &amp; {nome2}</strong>{' '}
+          expirou, mas jamais será apagada.
         </p>
-        <p className="text-nebula text-sm font-sans leading-relaxed mb-8">
-          Renove por mais {precoFormatado} e desperte cada estrela daquele céu especial.
+        <p className="text-sm font-sans leading-relaxed mb-10" style={{ color: 'rgba(167,139,250,0.38)' }}>
+          Renove por {precoFormatado} e desperte cada estrela daquele céu.
         </p>
-        <Link
-          href={`/renovar/${slug}`}
-          className="block w-full text-center bg-gradient-to-r from-gold-500 to-gold-400 text-space-900 font-sans font-bold px-8 py-4 rounded-2xl transition-all duration-300 hover:opacity-90 mb-3 shadow-lg"
-        >
-          ✨ Renovar por {precoFormatado}
-        </Link>
-        <Link
-          href="/criar"
-          className="block w-full text-center border border-violet-500/25 hover:border-violet-500/50 text-stardust hover:text-star font-sans text-sm px-8 py-3 rounded-2xl transition-all duration-300"
-        >
-          Criar uma nova memória
-        </Link>
+
+        <RenovarInline slug={slug} preco={preco} precoFormatado={precoFormatado} />
       </div>
-    </main>
+    </div>
   )
 }
 
@@ -631,13 +656,14 @@ export default async function CasalPage({
   }
 
   if (new Date(casal.data_expiracao) < new Date()) {
-    const precoFormatado = formatPreco(await getPreco())
+    const preco = await getPreco()
     return (
       <TelaExpirada
         nome1={casal.nome_parceiro_1}
         nome2={casal.nome_parceiro_2}
         slug={casal.slug_pagina_exclusiva}
-        precoFormatado={precoFormatado}
+        preco={preco}
+        precoFormatado={formatPreco(preco)}
       />
     )
   }

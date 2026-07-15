@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { supabase } from '@/app/lib/supabase'
-import { enviarEmailConfirmacao } from '@/app/lib/email'
+import { enviarEmailConfirmacao, enviarEmailRenovacao } from '@/app/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +17,10 @@ interface MpPagamento {
   status: string
   status_detail: string
   payer?: { email?: string }
+  metadata?: {
+    tipo_transacao?: string
+    casal_id?: string
+  }
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -71,7 +75,53 @@ export async function POST(request: NextRequest) {
     return new Response('OK', { status: 200 })
   }
 
-  // 3. Buscar o casal pelo ID do pagamento ───────────────────────────────────
+  // 3a. Renovação — detectada via metadata ───────────────────────────────────
+  const { tipo_transacao, casal_id } = pagamento.metadata ?? {}
+
+  if (tipo_transacao === 'renovacao') {
+    if (!casal_id) return new Response('OK', { status: 200 })
+
+    const { data: casal } = await supabase
+      .from('casais')
+      .select('email, nome_parceiro_1, nome_parceiro_2, slug_pagina_exclusiva')
+      .eq('id', casal_id)
+      .eq('status_pagamento', 'approved')
+      .single()
+
+    if (!casal) {
+      console.error('[webhook/mp] Casal não encontrado para renovação, id:', casal_id)
+      return new Response('OK', { status: 200 })
+    }
+
+    const novaExpiracao = new Date()
+    novaExpiracao.setFullYear(novaExpiracao.getFullYear() + 1)
+
+    const { error: updateError } = await supabase
+      .from('casais')
+      .update({ data_expiracao: novaExpiracao.toISOString() })
+      .eq('id', casal_id)
+
+    if (updateError) {
+      console.error('[webhook/mp] Erro ao renovar data_expiracao:', updateError)
+      return new Response('Erro ao atualizar banco de dados.', { status: 500 })
+    }
+
+    try {
+      await enviarEmailRenovacao({
+        email: casal.email,
+        nome_parceiro_1: casal.nome_parceiro_1,
+        nome_parceiro_2: casal.nome_parceiro_2,
+        slug_pagina_exclusiva: casal.slug_pagina_exclusiva,
+        data_expiracao: novaExpiracao.toISOString(),
+      })
+    } catch (emailErr) {
+      console.error('[webhook/mp] Erro ao enviar e-mail de renovação:', emailErr)
+    }
+
+    return new Response('OK', { status: 200 })
+  }
+
+  // 3b. Nova assinatura — busca pelo ID do pagamento ─────────────────────────
   const { data: casal, error: fetchError } = await supabase
     .from('casais')
     .select(

@@ -78,6 +78,137 @@ export async function enviarEmailConfirmacao(casal: DadosEmailCasal): Promise<vo
   })
 }
 
+// ─── Renovação ────────────────────────────────────────────────────────────────
+
+export interface DadosEmailRenovacao {
+  email: string
+  nome_parceiro_1: string
+  nome_parceiro_2: string
+  slug_pagina_exclusiva: string
+  data_expiracao: string
+}
+
+export async function enviarEmailRenovacao(dados: DadosEmailRenovacao): Promise<void> {
+  const baseUrl = process.env.BASE_URL ?? 'https://meudominio.com.br'
+  const urlPagina = `${baseUrl}/casal/${dados.slug_pagina_exclusiva}`
+
+  const dataExpiracaoFormatada = new Date(dados.data_expiracao).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  })
+
+  await resend.emails.send({
+    from: 'Céu Daquele Dia <ola@ceudaqueledia.com.br>',
+    to: dados.email,
+    subject: `✨ Renovação confirmada — O céu de ${dados.nome_parceiro_1} & ${dados.nome_parceiro_2} está ativo!`,
+    text: `Olá, ${dados.nome_parceiro_1} & ${dados.nome_parceiro_2}!\n\nSua renovação foi confirmada. O céu de vocês está ativo até ${dataExpiracaoFormatada}.\n\nAcesse sua página: ${urlPagina}\n\n— Equipe Céu Daquele Dia`,
+    html: criarHtmlEmailRenovacao({
+      nome1: dados.nome_parceiro_1,
+      nome2: dados.nome_parceiro_2,
+      dataExpiracaoFormatada,
+      urlPagina,
+    }),
+  })
+}
+
+function criarHtmlEmailRenovacao({
+  nome1,
+  nome2,
+  dataExpiracaoFormatada,
+  urlPagina,
+}: {
+  nome1: string
+  nome2: string
+  dataExpiracaoFormatada: string
+  urlPagina: string
+}): string {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Renovação Confirmada</title>
+</head>
+<body style="margin:0;padding:0;background-color:#07071a;font-family:Georgia,'Times New Roman',serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#07071a;">
+    <tr>
+      <td align="center" style="padding:48px 16px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+
+          <tr>
+            <td align="center" style="padding-bottom:32px;">
+              <p style="margin:0;font-size:28px;letter-spacing:8px;color:#f5d78e;">✦ · · · ✦ · · · ✦</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding-bottom:8px;">
+              <h1 style="margin:0;font-size:26px;font-weight:normal;color:#f0e6ff;letter-spacing:1px;">
+                As estrelas voltaram a brilhar! ✨
+              </h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding-bottom:40px;">
+              <p style="margin:0;font-size:14px;color:#8b7fb0;letter-spacing:2px;text-transform:uppercase;">
+                Renovação Confirmada
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:linear-gradient(135deg,#0f0f2e 0%,#1a1040 100%);border-radius:16px;padding:40px 36px;border:1px solid #2a2060;">
+
+              <p style="margin:0 0 24px;font-size:18px;color:#e8d5ff;line-height:1.6;">
+                Olá, <strong style="color:#c8a8ff;">${nome1}</strong> &amp;
+                <strong style="color:#c8a8ff;">${nome2}</strong> 💜
+              </p>
+
+              <p style="margin:0 0 28px;font-size:16px;color:#bbaedd;line-height:1.8;">
+                Sua renovação foi confirmada com sucesso! O céu de vocês está ativo novamente
+                e continuará brilhando até
+                <strong style="color:#f5d78e;">${dataExpiracaoFormatada}</strong>. 🌙
+              </p>
+
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <a href="${urlPagina}"
+                       style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;text-decoration:none;font-size:16px;font-family:Arial,sans-serif;font-weight:600;padding:16px 40px;border-radius:50px;letter-spacing:0.5px;">
+                      ✨ Visitar nosso céu
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding-top:32px;padding-bottom:8px;">
+              <p style="margin:0;font-size:12px;color:#4a4070;line-height:1.8;">
+                Este é um e-mail exclusivo gerado para
+                <strong style="color:#6b5e8a;">${nome1} &amp; ${nome2}</strong>.
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding-bottom:48px;">
+              <p style="margin:0;font-size:20px;letter-spacing:6px;color:#2a2060;">✦ · · · ✦ · · · ✦</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
 // ─── Template ─────────────────────────────────────────────────────────────────
 
 interface TextParams {
