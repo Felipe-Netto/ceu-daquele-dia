@@ -33,15 +33,15 @@ export async function GET(req: NextRequest) {
   const agora = new Date()
   const log: Record<string, unknown> = { rodou_em: agora.toISOString() }
 
-  // ── 1. Rascunhos não pagos com mais de 7 dias ────────────────────────────────
+  // ── 1. Rascunhos não pagos com mais de 1 dia ────────────────────────────────
   // Inclui 'pending' e qualquer status que não seja 'approved' (ex.: falhas de cartão).
-  const limite7dias = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const limite1dia = new Date(agora.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString()
 
   const { data: rascunhos, error: errBuscaRascunhos } = await supabase
     .from('casais')
     .select('id, url_foto_casal')
     .neq('status_pagamento', 'approved')
-    .lt('created_at', limite7dias)
+    .lt('created_at', limite1dia)
 
   if (errBuscaRascunhos) {
     log.erro_rascunhos = errBuscaRascunhos.message
@@ -58,15 +58,15 @@ export async function GET(req: NextRequest) {
     log.rascunhos_deletados = 0
   }
 
-  // ── 2. Assinaturas pagas expiradas há mais de 30 dias ───────────────────────
-  // Dá 30 dias de carência após a expiração antes de apagar definitivamente.
-  const limite30dias = new Date(agora.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  // ── 2. Assinaturas pagas expiradas há mais de 10 dias ───────────────────────
+  // Dá 10 dias de carência após a expiração antes de apagar definitivamente.
+  const limite10dias = new Date(agora.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString()
 
   const { data: expirados, error: errBuscaExpirados } = await supabase
     .from('casais')
     .select('id, url_foto_casal')
     .eq('status_pagamento', 'approved')
-    .lt('data_expiracao', limite30dias)
+    .lt('data_expiracao', limite10dias)
 
   if (errBuscaExpirados) {
     log.erro_expirados = errBuscaExpirados.message
