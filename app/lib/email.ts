@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import QRCode from 'qrcode'
+import { supabase } from '@/app/lib/supabase'
 
 const resend = new Resend(process.env.RESEND_API_KEY!)
 
@@ -32,6 +33,15 @@ export async function enviarEmailConfirmacao(casal: DadosEmailCasal): Promise<vo
 
   const { base64 } = await gerarQrCode(urlPagina)
 
+  const storagePath = `qrcodes/${casal.slug_pagina_exclusiva}.png`
+  const qrBuffer = Buffer.from(base64, 'base64')
+  await supabase.storage
+    .from('fotos-casais')
+    .upload(storagePath, qrBuffer, { contentType: 'image/png', upsert: true })
+  const { data: { publicUrl: qrCodeUrl } } = supabase.storage
+    .from('fotos-casais')
+    .getPublicUrl(storagePath)
+
   const dataFormatada = new Date(casal.data_especial + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: 'long',
@@ -46,7 +56,6 @@ export async function enviarEmailConfirmacao(casal: DadosEmailCasal): Promise<vo
       {
         filename: 'qrcode-ceu-daquele-dia.png',
         content: base64,
-        id: 'qrcode_cid',
       },
     ],
     text: criarTextoEmail({
@@ -64,6 +73,7 @@ export async function enviarEmailConfirmacao(casal: DadosEmailCasal): Promise<vo
       local: casal.local,
       urlPagina,
       urlEditar,
+      qrCodeUrl,
     }),
   })
 }
@@ -106,6 +116,7 @@ interface TemplateParams {
   local: string
   urlPagina: string
   urlEditar: string
+  qrCodeUrl: string
 }
 
 function criarHtmlEmail(p: TemplateParams): string {
@@ -191,7 +202,7 @@ function criarHtmlEmail(p: TemplateParams): string {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding-bottom:16px;">
-                    <img src="cid:qrcode_cid"
+                    <img src="${p.qrCodeUrl}"
                          width="200" height="200"
                          alt="QR Code para sua página especial"
                          style="display:block;border-radius:12px;border:4px solid #2a2060;" />
