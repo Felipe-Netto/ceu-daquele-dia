@@ -12,7 +12,8 @@ const fetchPrecoFromDB = unstable_cache(
       .single()
 
     const valor = Number(data?.preco)
-    return isFinite(valor) && valor > 0 ? valor : 29.90
+    if (!isFinite(valor) || valor <= 0) throw new Error('Preço não configurado no banco de dados.')
+    return valor
   },
   ['configuracoes-preco-mapa-estelar'],
   { revalidate: 3600 } // TTL de 1 hora

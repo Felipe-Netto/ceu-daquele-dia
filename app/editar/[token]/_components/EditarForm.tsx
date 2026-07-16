@@ -56,7 +56,7 @@ function parseLocal(local: string) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function EditarForm({ casal }: { casal: Casal }) {
+export default function EditarForm({ casal, preco }: { casal: Casal; preco: number }) {
   const [form, setForm] = useState<FormState>({
     nome_parceiro_1:       casal.nome_parceiro_1,
     nome_parceiro_2:       casal.nome_parceiro_2,
@@ -96,14 +96,7 @@ export default function EditarForm({ casal }: { casal: Casal }) {
 
   const expirado = new Date(casal.data_expiracao) < new Date()
 
-  const [preco, setPreco] = useState(29.90)
   const precoFormatado = `R$ ${preco.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  useEffect(() => {
-    fetch('/api/preco')
-      .then(r => r.json())
-      .then(d => { if (typeof d.preco === 'number' && d.preco > 0) setPreco(d.preco) })
-      .catch(() => {})
-  }, [])
 
   // ── Toast ─────────────────────────────────────────────────────────────────
 
@@ -220,6 +213,7 @@ export default function EditarForm({ casal }: { casal: Casal }) {
     if (!form.nome_parceiro_1.trim()) errs.nome_parceiro_1 = 'Informe o nome do primeiro parceiro'
     if (!form.nome_parceiro_2.trim()) errs.nome_parceiro_2 = 'Informe o nome do segundo parceiro'
     if (!form.data_especial)          errs.data_especial   = 'Informe a data especial'
+    else if (form.data_especial > new Date().toISOString().split('T')[0]) errs.data_especial = 'A data não pode ser no futuro'
     if (!form.local.trim())           errs.local           = 'Informe o local'
 
     const slug = form.slug_pagina_exclusiva
@@ -423,7 +417,10 @@ export default function EditarForm({ casal }: { casal: Casal }) {
               <input
                 type="date"
                 value={form.data_especial}
-                onChange={e => setField('data_especial', e.target.value)}
+                onChange={e => {
+                  const hoje = new Date().toISOString().split('T')[0]
+                  setField('data_especial', e.target.value > hoje ? hoje : e.target.value)
+                }}
                 max={new Date().toISOString().split('T')[0]}
                 className={`${inputCls('data_especial')} appearance-none`}
                 style={{ colorScheme: 'dark', width: '100%', minWidth: 0 }}

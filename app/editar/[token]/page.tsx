@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
 import type { Casal } from '@/app/lib/supabase'
+import { getPreco } from '@/app/lib/preco'
 import EditarForm from './_components/EditarForm'
 
 // ── Data fetching ─────────────────────────────────────────────────────────────
@@ -31,11 +32,11 @@ export default async function EditarPage({
   params: Promise<{ token: string }>
 }) {
   const { token } = await params
-  const casal = await getCasalPorToken(token)
+  const [casal, preco] = await Promise.all([getCasalPorToken(token), getPreco()])
 
   if (!casal) return <TelaTokenInvalido />
 
-  return <EditarForm casal={casal} />
+  return <EditarForm casal={casal} preco={preco} />
 }
 
 // ── Token inválido ────────────────────────────────────────────────────────────
