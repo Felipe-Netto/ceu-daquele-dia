@@ -141,16 +141,28 @@ export async function POST(request: NextRequest) {
     return new Response('OK', { status: 200 })
   }
 
-  // 4. Atualizar status no banco ─────────────────────────────────────────────
-  const { error: updateError } = await supabase
+  // 4. Atualizar status no banco (idempotente e à prova de corrida) ───────────
+  // O update só afeta a linha se ela ainda NÃO estiver 'approved'. Cobre tanto
+  // Pix ('pending') quanto cartão em análise ('in_process'). Se o polling
+  // (/api/checkout/status) já tiver confirmado, nenhuma linha muda e evitamos
+  // reenviar o e-mail de confirmação.
+  const { data: confirmado, error: updateError } = await supabase
     .from('casais')
     .update({ status_pagamento: 'approved' })
     .eq('id', casal.id)
+    .neq('status_pagamento', 'approved')
+    .select('id')
+    .maybeSingle()
 
   if (updateError) {
     console.error('[webhook/mp] Erro ao atualizar status do casal:', updateError)
     // Retorna 500 para o MP retentar — o DB precisa ser atualizado
     return new Response('Erro ao atualizar banco de dados.', { status: 500 })
+  }
+
+  // Nenhuma linha mudou → o polling já confirmou e enviou o e-mail
+  if (!confirmado) {
+    return new Response('OK', { status: 200 })
   }
 
   // 5. Enviar e-mail de confirmação (não bloqueia a resposta se falhar) ───────

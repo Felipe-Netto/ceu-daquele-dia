@@ -673,6 +673,40 @@ function LivePreview({
 
 function PixModal({ pixData, onClose, precoFormatado }: { pixData: PixData; onClose: () => void; precoFormatado: string }) {
   const [copiado, setCopiado] = useState(false)
+  const [confirmado, setConfirmado] = useState(false)
+
+  // ── Polling: pergunta ao backend a cada 4s se o Pix já foi aprovado ──────────
+  // Quando aprovado, mostra o estado de sucesso e redireciona para a página do casal.
+  useEffect(() => {
+    if (!pixData.slug) return
+    let cancelado = false
+
+    const verificarPagamento = async () => {
+      try {
+        const res = await fetch(`/api/checkout/status?slug=${encodeURIComponent(pixData.slug)}`)
+        const data = await res.json()
+
+        if (!cancelado && data.status === 'approved') {
+          clearInterval(intervalo)
+          setConfirmado(true)
+          // Pequena pausa para o usuário ver a confirmação, então redireciona
+          setTimeout(() => {
+            window.location.href = `/casal/${data.slug ?? pixData.slug}`
+          }, 1400)
+        }
+      } catch {
+        // Rede instável — simplesmente tenta de novo no próximo ciclo
+      }
+    }
+
+    const intervalo = setInterval(verificarPagamento, 4000)
+    verificarPagamento() // primeira checagem imediata
+
+    return () => {
+      cancelado = true
+      clearInterval(intervalo)
+    }
+  }, [pixData.slug])
 
   const copiar = useCallback(async () => {
     try {
@@ -712,26 +746,49 @@ function PixModal({ pixData, onClose, precoFormatado }: { pixData: PixData; onCl
           O link chega no seu e-mail. 💜
         </p>
 
-        {/* QR Code */}
-        {pixData.qrCodeBase64 ? (
-          <div className="flex justify-center mb-5">
-            <div className="bg-white p-3 rounded-2xl">
-              <img
-                src={`data:image/png;base64,${pixData.qrCodeBase64}`}
-                alt="QR Code Pix"
-                className="w-44 h-44"
-              />
+        {confirmado ? (
+          /* ── Estado de sucesso: pagamento confirmado, redirecionando ── */
+          <div className="flex flex-col items-center gap-4 mb-5 py-6">
+            <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl"
+              style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.4)' }}>
+              ✨
+            </div>
+            <p className="font-display text-2xl text-star">Pagamento confirmado!</p>
+            <div className="flex items-center gap-2 text-stardust text-sm font-sans">
+              <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+              Levando você ao céu de vocês…
             </div>
           </div>
         ) : (
-          <div className="w-44 h-44 mx-auto mb-5 rounded-2xl flex items-center justify-center border border-violet-500/20"
-            style={{ background: 'rgba(7,7,26,0.8)' }}>
-            <div className="w-8 h-8 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
-          </div>
+          <>
+            {/* QR Code */}
+            {pixData.qrCodeBase64 ? (
+              <div className="flex justify-center mb-5">
+                <div className="bg-white p-3 rounded-2xl">
+                  <img
+                    src={`data:image/png;base64,${pixData.qrCodeBase64}`}
+                    alt="QR Code Pix"
+                    className="w-44 h-44"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="w-44 h-44 mx-auto mb-5 rounded-2xl flex items-center justify-center border border-violet-500/20"
+                style={{ background: 'rgba(7,7,26,0.8)' }}>
+                <div className="w-8 h-8 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+
+            {/* Indicador de "aguardando pagamento" — o polling redireciona sozinho */}
+            <div className="flex items-center justify-center gap-2 mb-5 text-nebula text-xs font-sans">
+              <div className="w-2 h-2 rounded-full bg-gold-400 animate-pulse-glow" />
+              Aguardando o pagamento — esta tela vira sozinha assim que cair. 💫
+            </div>
+          </>
         )}
 
         {/* Copy-paste code */}
-        {pixData.qrCode && (
+        {!confirmado && pixData.qrCode && (
           <div className="mb-5">
             <p className="text-nebula text-xs font-sans mb-2">Ou copie o código Pix:</p>
             <div className="flex items-center gap-2 rounded-xl p-3 border border-white/5"
@@ -772,7 +829,50 @@ function PixModal({ pixData, onClose, precoFormatado }: { pixData: PixData; onCl
 
 function CartaoResultadoModal({ resultado, onClose }: { resultado: CartaoResultado; onClose: () => void }) {
   const { status, slug, mensagem } = resultado
-  const canClose = status !== 'approved'
+  const [redirecionando, setRedirecionando] = useState(false)
+  // Não deixa fechar quando aprovado (vai redirecionar) nem quando já está indo redirecionar
+  const canClose = status !== 'approved' && !redirecionando
+
+  // Cartão APROVADO na hora → redireciona sozinho após uma pausa para celebração
+  useEffect(() => {
+    if (status !== 'approved' || !slug) return
+    const t = setTimeout(() => {
+      window.location.href = `/casal/${slug}`
+    }, 1800)
+    return () => clearTimeout(t)
+  }, [status, slug])
+
+  // Cartão EM ANÁLISE (in_process/pending) → faz polling até aprovar, então redireciona
+  useEffect(() => {
+    if ((status !== 'in_process' && status !== 'pending') || !slug) return
+    let cancelado = false
+
+    const verificarPagamento = async () => {
+      try {
+        const res = await fetch(`/api/checkout/status?slug=${encodeURIComponent(slug)}`)
+        const data = await res.json()
+
+        if (!cancelado && data.status === 'approved') {
+          clearInterval(intervalo)
+          setRedirecionando(true)
+          setTimeout(() => {
+            window.location.href = `/casal/${data.slug ?? slug}`
+          }, 1400)
+        }
+      } catch {
+        // Rede instável — tenta de novo no próximo ciclo
+      }
+    }
+
+    // Análise de cartão costuma ser mais lenta que Pix → checa a cada 5s
+    const intervalo = setInterval(verificarPagamento, 5000)
+    verificarPagamento()
+
+    return () => {
+      cancelado = true
+      clearInterval(intervalo)
+    }
+  }, [status, slug])
 
   const content = {
     approved: {
@@ -822,14 +922,23 @@ function CartaoResultadoModal({ resultado, onClose }: { resultado: CartaoResulta
         <h2 className="font-display text-3xl text-star mb-3">{content.titulo}</h2>
         <p className="text-stardust text-sm font-sans mb-6 leading-relaxed">{content.corpo}</p>
 
+        {/* APROVADO → redireciona sozinho; link fica como plano B caso o redirect falhe */}
         {status === 'approved' && slug && (
-          <Link
-            href={`/casal/${slug}`}
-            className="block w-full bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400 text-white font-sans font-semibold py-4 rounded-2xl transition-all duration-300 shadow-lg"
-          >
-            Ver nossa página →
-          </Link>
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-2 text-stardust text-sm font-sans">
+              <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+              Levando você ao céu de vocês…
+            </div>
+            <Link
+              href={`/casal/${slug}`}
+              className="block w-full bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400 text-white font-sans font-semibold py-4 rounded-2xl transition-all duration-300 shadow-lg"
+            >
+              Ver nossa página agora →
+            </Link>
+          </div>
         )}
+
+        {/* RECUSADO → nada automático: só o botão de tentar de novo */}
         {status === 'rejected' && (
           <button
             onClick={onClose}
@@ -838,8 +947,25 @@ function CartaoResultadoModal({ resultado, onClose }: { resultado: CartaoResulta
             Tentar novamente
           </button>
         )}
+
+        {/* EM ANÁLISE → polling ativo; a tela vira sozinha quando aprovar */}
         {(status === 'in_process' || status === 'pending') && (
-          <p className="text-nebula text-xs font-sans">Você pode fechar esta janela — o e-mail chegará assim que aprovado.</p>
+          redirecionando ? (
+            <div className="flex items-center justify-center gap-2 text-stardust text-sm font-sans py-1">
+              <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+              Pagamento aprovado! Redirecionando…
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-center gap-2 text-nebula text-xs font-sans">
+                <div className="w-2 h-2 rounded-full bg-gold-400 animate-pulse-glow" />
+                Verificando a aprovação — esta tela vira sozinha. 💫
+              </div>
+              <p className="text-nebula text-xs font-sans">
+                Pode fechar se preferir: o link também chega no seu e-mail.
+              </p>
+            </div>
+          )
         )}
       </div>
     </div>
