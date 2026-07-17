@@ -876,6 +876,7 @@ export default function CriarForm({ preco, precoFormatado }: { preco: number; pr
   const [cartaoResultado, setCartaoResultado] = useState<CartaoResultado | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [aceitouTermos, setAceitouTermos] = useState(false)
 
   // ── Pagamento ──────────────────────────────────────────────────────────────
   const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'credit_card'>('pix')
@@ -1032,6 +1033,11 @@ export default function CriarForm({ preco, precoFormatado }: { preco: number; pr
 
   const handleSubmit = async () => {
     if (!validate(3)) return
+
+    if (!aceitouTermos) {
+      setSubmitError('Para continuar, marque que leu e concorda com os Termos de Uso e Política de Privacidade.')
+      return
+    }
 
     if (formState.latitude === null || formState.longitude === null) {
       setSubmitError('Não encontramos as coordenadas da cidade. Volte à primeira etapa e selecione a cidade novamente.')
@@ -1657,6 +1663,28 @@ export default function CriarForm({ preco, precoFormatado }: { preco: number; pr
                 </div>
               )}
 
+              {/* Aceite dos termos — obrigatório para pagar */}
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={aceitouTermos}
+                  onChange={e => setAceitouTermos(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 flex-shrink-0 accent-violet-600 cursor-pointer"
+                />
+                <span className="text-stardust text-xs font-sans leading-relaxed">
+                  Li e concordo com os{' '}
+                  <Link
+                    href="/termos"
+                    target="_blank"
+                    className="text-violet-400 hover:text-violet-300 underline underline-offset-2"
+                  >
+                    Termos de Uso e Política de Privacidade
+                  </Link>{' '}
+                  e estou ciente de que, por se tratar de um produto totalmente personalizado, não há
+                  direito a arrependimento após a geração do link.
+                </span>
+              </label>
+
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -1669,7 +1697,7 @@ export default function CriarForm({ preco, precoFormatado }: { preco: number; pr
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={isSubmitting || (metodoPagamento === 'credit_card' && !mpCarregado)}
+                  disabled={isSubmitting || !aceitouTermos || (metodoPagamento === 'credit_card' && !mpCarregado)}
                   className="btn-glow flex-[2] bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400 disabled:from-violet-900 disabled:to-violet-800 text-white font-sans font-semibold text-base px-8 py-4 rounded-2xl transition-all duration-300 shadow-lg flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
