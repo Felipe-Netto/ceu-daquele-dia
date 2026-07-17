@@ -123,7 +123,15 @@ export default function BenefitsSection({ precoFormatado }: { precoFormatado: st
           <p className="text-nebula text-xs font-sans text-center">
             © {new Date().getFullYear()} Céu Daquele Dia · Feito com 💜 para eternizar memórias
           </p>
-          <p className="text-nebula text-xs font-sans">{precoFormatado} / ano</p>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/termos"
+              className="text-nebula text-xs font-sans hover:text-stardust transition-colors"
+            >
+              Termos de Uso e Privacidade
+            </Link>
+            <p className="text-nebula text-xs font-sans">{precoFormatado} / ano</p>
+          </div>
         </div>
       </footer>
     </>
